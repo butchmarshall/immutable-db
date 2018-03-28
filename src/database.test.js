@@ -15,9 +15,13 @@ describe("Database", () => {
 
 	database.addTable(questionsTable);
 	database.addTable(answersTable);
+
 	let answers = [];
 	let questions = [];
 
+	// ----------------------------------------------------------------------------
+	// First question
+	// ----------------------------------------------------------------------------
 	questions.push(questionsTable.create({
 		id: 1,
 		name: "How are you?"
@@ -38,7 +42,9 @@ describe("Database", () => {
 	}));
 	questions[0].answers.add(answers[2]);
 
-
+	// ----------------------------------------------------------------------------
+	// Second question
+	// ----------------------------------------------------------------------------
 	questions.push(questionsTable.create({
 		id: 2,
 		name: "What is your favorite food?"
@@ -64,12 +70,39 @@ describe("Database", () => {
 	}));
 	questions[1].answers.add(answers[6]);
 
+	console.log(database.toJS());
+
 	it ('should allow fetching individual records', () => {
 		expect(database.questions.get(1)).toEqual(questions[0]);
 		expect(database.questions.get(2)).toEqual(questions[1]);
+
+		answers.forEach((answer, answer_index) => {
+			expect(database.answers.get(answer_index+1)).toEqual(answers[answer_index]);
+		});
+
+		expect(database.answers.get(1).question).toEqual(questions[0]);
+		expect(database.answers.get(7).question).toEqual(questions[1]);
 	});
 
-	it ('should return correct associative relationships', () => {
+	it ('should allow updating individual records', () => {
+		expect(database.questions.get(1)).toEqual(questions[0]);
+
+		database.questions.get(1).update({name: "How are you doing this fine evening?"});
+
+		// The property should change
+		expect(database.questions.get(1).name).toBe("How are you doing this fine evening?");
+		// The references should remain
+		expect(database.questions.get(1).answers.get().size).toEqual(3);
+		// References object should change
+		expect(database.questions.get(1)).not.toEqual(questions[0]);
+	});
+
+	it ('should return belongsTo relationships', () => {
+		expect(database.answers.get(1).question).toEqual(questions[0]);
+		expect(database.answers.get(7).question).toEqual(questions[1]);
+	});
+
+	it ('should return hasMany relationships', () => {
 		expect(questions[0].answers.get().size).toEqual(3);
 		expect(questions[1].answers.get().size).toEqual(4);
 

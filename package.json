@@ -1,6 +1,6 @@
 {
   "name": "immutable-db",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Represent relationships between data immutably",
   "main": "src/index.js",
   "scripts": {
@@ -13,7 +13,8 @@
   "author": "Butch Marshall",
   "license": "MIT",
   "dependencies": {
-    "immutable": "^3.8.2"
+    "immutable": "^3.8.2",
+    "uuid": "^3.2.1"
   },
   "devDependencies": {
     "babel-cli": "^6.26.0",
