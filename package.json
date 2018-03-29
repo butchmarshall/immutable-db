@@ -1,6 +1,6 @@
 {
-  "name": "immutable-db",
-  "version": "0.0.3",
+  "name": "immutable-orm",
+  "version": "0.0.4",
   "description": "Represent relationships between data immutably",
   "main": "src/index.js",
   "scripts": {
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/butchmarshall/immutable-db.git"
+    "url": "git+https://github.com/butchmarshall/immutable-orm.git"
   },
   "author": "Butch Marshall",
   "license": "MIT",

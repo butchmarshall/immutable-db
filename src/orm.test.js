@@ -1,20 +1,20 @@
-import Database, { Table } from './database';
+import ORM, { Model } from './orm';
 
-describe("Database", () => {
-	const database = new Database();
-	const questionsTable = new Table('questions', [
+describe("ORM", () => {
+	const orm = new ORM();
+	const questionsModel = new Model('questions', [
 		'id', 'name'
 	], [{
 		hasMany: 'answers',
 	}]);
-	const answersTable = new Table('answers', [
+	const answersModel = new Model('answers', [
 		'id', 'name'
 	], [{
 		belongsTo: 'question',
 	}]);
 
-	database.addTable(questionsTable);
-	database.addTable(answersTable);
+	orm.addModel(questionsModel);
+	orm.addModel(answersModel);
 
 	let answers = [];
 	let questions = [];
@@ -22,21 +22,21 @@ describe("Database", () => {
 	// ----------------------------------------------------------------------------
 	// First question
 	// ----------------------------------------------------------------------------
-	questions.push(questionsTable.create({
+	questions.push(questionsModel.create({
 		id: 1,
 		name: "How are you?"
 	}));
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 1,
 		name: "Great!",
 	}));
 	questions[0].answers.add(answers[0]);
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 2,
 		name: "Good!",
 	}));
 	questions[0].answers.add(answers[1]);
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 3,
 		name: "FINE!",
 	}));
@@ -45,61 +45,69 @@ describe("Database", () => {
 	// ----------------------------------------------------------------------------
 	// Second question
 	// ----------------------------------------------------------------------------
-	questions.push(questionsTable.create({
+	questions.push(questionsModel.create({
 		id: 2,
 		name: "What is your favorite food?"
 	}));
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 4,
 		name: "Pizza!",
 	}));
 	questions[1].answers.add(answers[3]);
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 5,
 		name: "Hot Dogs!",
 	}));
 	questions[1].answers.add(answers[4]);
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 6,
 		name: "Spagetti!",
 	}));
 	questions[1].answers.add(answers[5]);
-	answers.push(answersTable.create({
+	answers.push(answersModel.create({
 		id: 7,
 		name: "Potatoes!",
 	}));
 	questions[1].answers.add(answers[6]);
 
-	console.log(database.toJS());
+	console.log(orm.toJS());
 
 	it ('should allow fetching individual records', () => {
-		expect(database.questions.getRowByPrimaryKey(1)).toEqual(questions[0]);
-		expect(database.questions.getRowByPrimaryKey(2)).toEqual(questions[1]);
+		expect(orm.questions.getRowByPrimaryKey(1)).toEqual(questions[0]);
+		expect(orm.questions.getRowByPrimaryKey(2)).toEqual(questions[1]);
 
 		answers.forEach((answer, answer_index) => {
-			expect(database.answers.getRowByPrimaryKey(answer_index+1)).toEqual(answers[answer_index]);
+			expect(orm.answers.getRowByPrimaryKey(answer_index+1)).toEqual(answers[answer_index]);
 		});
 
-		expect(database.answers.getRowByPrimaryKey(1).question).toEqual(questions[0]);
-		expect(database.answers.getRowByPrimaryKey(7).question).toEqual(questions[1]);
+		expect(orm.answers.getRowByPrimaryKey(1).question).toEqual(questions[0]);
+		expect(orm.answers.getRowByPrimaryKey(7).question).toEqual(questions[1]);
 	});
 
 	it ('should allow updating individual records', () => {
-		expect(database.questions.getRowByPrimaryKey(1)).toEqual(questions[0]);
+		expect(orm.questions.getRowByPrimaryKey(1)).toEqual(questions[0]);
 
-		database.questions.getRowByPrimaryKey(1).update({name: "How are you doing this fine evening?"});
+		orm.questions.getRowByPrimaryKey(1).update({name: "How are you doing this fine evening?"});
 
 		// The property should change
-		expect(database.questions.getRowByPrimaryKey(1).name).toBe("How are you doing this fine evening?");
+		expect(orm.questions.getRowByPrimaryKey(1).name).toBe("How are you doing this fine evening?");
 		// The references should remain
-		expect(database.questions.getRowByPrimaryKey(1).answers.all().size).toEqual(3);
+		expect(orm.questions.getRowByPrimaryKey(1).answers.all().size).toEqual(3);
 		// References object should change
-		expect(database.questions.getRowByPrimaryKey(1)).not.toEqual(questions[0]);
+		expect(orm.questions.getRowByPrimaryKey(1)).not.toEqual(questions[0]);
+
+		// Set new ref - otherwise we're dealing with something old!
+		questions[0] = orm.questions.getRowByPrimaryKey(1);
+
+		orm.answers.getRowByPrimaryKey(1).update({name:"Great thanks for asking!"});
+		expect(orm.answers.getRowByPrimaryKey(1)).not.toEqual(answers[0]);
+		// Set new ref - otherwise we're dealing with something old!
+		answers[0] = orm.answers.getRowByPrimaryKey(1);
 	});
 
 	it ('should return belongsTo relationships', () => {
-		expect(database.answers.getRowByPrimaryKey(1).question).toEqual(questions[0]);
-		expect(database.answers.getRowByPrimaryKey(7).question).toEqual(questions[1]);
+		expect(orm.answers.getRowByPrimaryKey(1).question).toEqual(questions[0]);
+		expect(orm.answers.getRowByPrimaryKey(7).question).toEqual(questions[1]);
 	});
 
 	it ('should return hasMany relationships', () => {
@@ -126,10 +134,12 @@ describe("Database", () => {
 		expect(questions[0].answers.all().size).toEqual(2);
 	});
 
-	it ('should allow removing records', () => {
-		database.questions.remove(questions[0]);
+	it ('should allow removing records and cleaning up associations', () => {
+		orm.questions.remove(questions[0]);
 
-		expect(database.questions.getRowByPrimaryKey(1)).toEqual(undefined);
+		expect(orm.questions.getRowByPrimaryKey(1)).toEqual(undefined);
+
+		//expect(answers[0].question).toEqual(undefined);
 	});
 
 	it ('should do something', () => {
