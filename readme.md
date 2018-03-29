@@ -1,4 +1,4 @@
-# immutable-db [![npm version](https://badge.fury.io/js/immutable-db.svg)](https://badge.fury.io/js/immutable-db)
+# immutable-orm [![npm version](https://badge.fury.io/js/immutable-orm.svg)](https://badge.fury.io/js/immutable-orm)
 An simple immutable relational orm
 
 **This package is not production ready**
