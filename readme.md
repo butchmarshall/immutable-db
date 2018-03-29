@@ -8,7 +8,7 @@ An simple immutable relational orm
 ## Install package
 
 ```bash
-npm i immutable-db --save
+npm i immutable-orm --save
 ```
 
 # Usage
@@ -16,7 +16,7 @@ npm i immutable-db --save
 Import library
 
 ```javascript
-import Orm, {Model} from 'immutable-db';
+import ORM, {Model} from 'immutable-orm';
 ```
 
 Create some data

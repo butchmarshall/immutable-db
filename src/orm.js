@@ -5,8 +5,6 @@ const _uuid = new WeakMap();
 const _store = new WeakMap();
 const _modelRecord = new WeakMap();
 
-export const ROW_UUID_NAMESPACE = '7020a680-322c-11e8-b467-0ed5f89f718b';
-
 class ModelStorage extends Immutable.Record({
 	primaryKey: "id",
 	byUUID: Immutable.Map(),
@@ -43,7 +41,6 @@ class ModelStorage extends Immutable.Record({
 	}
 }
 
-let __uuid_count = 1;
 class ORM {
 	constructor() {
 		// Where the data goes
