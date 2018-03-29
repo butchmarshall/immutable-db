@@ -6,6 +6,43 @@ const _tableRecord = new WeakMap();
 
 export const ROW_UUID_NAMESPACE = '7020a680-322c-11e8-b467-0ed5f89f718b';
 
+class TableStorage extends Immutable.Record({
+	primaryKey: "id",
+	byUUID: Immutable.Map(),
+	byPrimaryKey: Immutable.Map(),
+}, "TableStorage") {
+	getRowsByUUID(__uuids) {
+		return this.byUUID.filter((v,k) => {
+			return __uuids.includes(k);
+		}).toList();
+	}
+	getRowByPrimaryKey(key) {
+		return this.getRowByUUID(this.byPrimaryKey.get(key));
+	}
+	getRowByUUID(__uuid) {
+		return this.byUUID.get(__uuid);
+	}
+	insertRow(row) {
+		let byUUID = this.byUUID.set(row.__uuid, row),
+		byPrimaryKey = this.byPrimaryKey.set(row[this.primaryKey], row.__uuid);
+
+		let that = this.set("byUUID", byUUID);
+		that = that.set("byPrimaryKey", byPrimaryKey);
+
+		return that;
+	}
+	removeRow(row) {
+		let byUUID = this.byUUID.remove(row.__uuid),
+		byPrimaryKey = this.byPrimaryKey.remove(row[this.primaryKey]);
+
+		let that = this.set("byUUID", byUUID);
+		that = that.set("byPrimaryKey", byPrimaryKey);
+
+		return that;
+	}
+}
+
+let __uuid_count = 1;
 class Database {
 	constructor() {
 		// Where the data goes
@@ -16,30 +53,25 @@ class Database {
 		tableObj.setDatabase(this);
 
 		let store = _store.get(this);
-		store = store.set(tableObj.tableName, Immutable.List());
+		store = store.set(tableObj.tableName, new TableStorage());
 
 		tableObj.relations.forEach((relation) => {
 			if (relation.hasMany) {
-				store = store.set(tableObj.tableName+"_"+relation.hasMany, Immutable.Map());
+				store = store.set(tableObj.tableName+"_"+relation.hasMany, Immutable.Map({}));
 			}
 		});
 
 		_store.set(this, store);
 	}
 
-	getRow(tableObj, id) {
+	getRowByPrimaryKey(tableObj, id) {
 		let store = _store.get(this);
-		let table = store.get(tableObj.tableName);
 
-		for(var i = 0; i < table.size; i++) {
-			if (table.get(i).id === id) {
-				return table.get(i);
-			}
-		}
+		return store.get(tableObj.tableName).getRowByPrimaryKey(id);
 	}
 
 	updateRow(tableObj, row, data) {
-		const uuid = row.uuid;
+		const __uuid = row.__uuid;
 		let methods = {};
 		for(var k in tableObj.relations) {
 			if (tableObj.relations[k].hasMany) {
@@ -51,32 +83,26 @@ class Database {
 		}
 
 		row = row.merge(data);
+		row.__uuid = __uuid;
 		for(var k in methods) {
 			row[k] = methods[k];
 		}
 
 		let store = _store.get(this);
 
-		let table = store.get(tableObj.tableName);
-		for(var i = 0; i < table.size; i++) {
-			if (table.get(i).uuid == uuid) {
-				row.uuid = uuid;
-				table = table.set(i, row);
+		let tableStorage = store.get(tableObj.tableName);
+		tableStorage = tableStorage.insertRow(row);
 
-				break;
-			}
-		}
-
-		store = store.set(tableObj.tableName, table);
+		store = store.set(tableObj.tableName, tableStorage);
 		_store.set(this, store);
 
 		return row;
 	}
 
-	createRow(tableObj, data, uuid = null) {
+	createRow(tableObj, data, __uuid = null) {
 		const Record = _tableRecord.get(tableObj);
 		const row = new Record(data);
-		row.uuid = uuid || uuidv4();
+		row.__uuid = __uuid || uuidv4();
 		row.update = tableObj.update.bind(tableObj, row);
 
 		tableObj.relations.forEach((relation) => {
@@ -85,22 +111,55 @@ class Database {
 			}
 		});
 
-		let store = _store.get(this);
-		store = store.set(tableObj.tableName, store.get(tableObj.tableName).push(row));
+		let store = _store.get(this),
+		tableStorage = store.get(tableObj.tableName);
+		tableStorage = tableStorage.insertRow(row);
+
+		store = store.set(tableObj.tableName, tableStorage);
 		_store.set(this, store);
 
 		return row;
 	}
 
-	createRelation(relationInstance, toTableObj) {
+	removeRow(tableObj, row) {
+		let store = _store.get(this),
+		tableStorage = store.get(tableObj.tableName);
+		tableStorage = tableStorage.removeRow(row);
+		store = store.set(tableObj.tableName, tableStorage);
+
+		tableObj.relations.forEach((relation) => {
+			if (relation.hasMany) {
+				row[relation.hasMany] = new Relation(this, tableObj, row, relation.hasMany);
+			}
+		});
+
+		_store.set(this, store);
+	}
+
+	createRelation(relationInstance, row) {
 		let store = _store.get(this);
 
-		let relation = store.get(relationInstance.tableName);
+		let tableStorage = store.get(relationInstance.tableName);
 
-		let map = relation.get(relationInstance.instanceRow.uuid) || Immutable.List();
-		map = map.push(toTableObj.uuid);
-		relation = relation.set(relationInstance.instanceRow.uuid, map);
-		store = store.set(relationInstance.tableName, relation);
+		let map = tableStorage.get(relationInstance.instanceRow.__uuid) || Immutable.List();
+		map = map.push(row.__uuid);
+		tableStorage = tableStorage.set(relationInstance.instanceRow.__uuid, map);
+		store = store.set(relationInstance.tableName, tableStorage);
+
+		_store.set(this, store);
+	}
+
+	removeRelation(relationInstance, row) {
+		let store = _store.get(this);
+
+		let tableStorage = store.get(relationInstance.tableName);
+
+		let map = tableStorage.get(relationInstance.instanceRow.__uuid) || Immutable.List();
+		map = map.filter((__uuid) => {
+			return __uuid !== row.__uuid;
+		});
+		tableStorage = tableStorage.set(relationInstance.instanceRow.__uuid, map);
+		store = store.set(relationInstance.tableName, tableStorage);
 
 		_store.set(this, store);
 	}
@@ -109,13 +168,13 @@ class Database {
 		let store = _store.get(this);
 
 		let relation = store.get(relationInstance.tableName);
-		let map = relation.get(relationInstance.instanceRow.uuid) || Immutable.List();
+		let list = relation.get(relationInstance.instanceRow.__uuid) || Immutable.List();
 
 		const objects = store.get(relationInstance.toTableName);
 
-		return store.get(relationInstance.toTableName).filter((obj) => {
-			return map.includes(obj.uuid);
-		});
+		const tableStorage = store.get(relationInstance.toTableName);
+
+		return tableStorage.getRowsByUUID(list);
 	}
 
 	toJS() {
@@ -133,8 +192,8 @@ export class Relation {
 		this.tableName = tableObj.tableName+"_"+toTableName;
 	}
 
-	// Get associated objects
-	get() {
+	// Get all the associated objects
+	all() {
 		return this.database.getRelation(this);
 	}
 
@@ -148,13 +207,25 @@ export class Relation {
 			}
 		});
 	}
+
+	// Remove a relationship to another instance
+	remove(instance) {
+		this.database.removeRelation(this, instance);
+	}
 }
 
 export class Table {
 	constructor(tableName, schemaDef, relations = []) {
 		// Immutable Record to use for this table
 		_tableRecord.set(this,
-			class TableRecord extends Immutable.Record(schemaDef.reduce((accum, item) => { accum[item] = undefined; return accum; }, {}), tableName) {
+			class TableRecord extends Immutable.Record(
+				schemaDef.reduce(
+					(accum, item) => {
+						accum[item] = undefined;
+						return accum;
+					},
+					{}
+				), tableName) {
 			}
 		);
 
@@ -170,12 +241,15 @@ export class Table {
 		this.database = database;
 	}
 
-	get(id) {
-		return this.database.getRow(this, id);
+	getRowByPrimaryKey(key) {
+		return this.database.getRowByPrimaryKey(this, key);
 	}
 
 	create(data) {
 		return this.database.createRow(this, data);
+	}
+	remove(row) {
+		return this.database.removeRow(this, row);
 	}
 	
 	update(row, data) {
