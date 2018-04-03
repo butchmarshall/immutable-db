@@ -1,56 +1,26 @@
 import Immutable from 'immutable';
 import uuidv4 from 'uuid/v4';
 
-const _uuid = new WeakMap();
-const _store = new WeakMap();
-const _modelRecord = new WeakMap();
+import ModelStorage from './model_storage';
+import Relation from './relation';
+import {
+	ModelRecordMap
+} from './model';
 
-class ModelStorage extends Immutable.Record({
-	primaryKey: "id",
-	byUUID: Immutable.Map(),
-	byPrimaryKey: Immutable.Map(),
-}, "ModelStorage") {
-	getRowsByUUID(__uuids) {
-		return this.byUUID.filter((v,k) => {
-			return __uuids.includes(k);
-		}).toList();
-	}
-	getRowByPrimaryKey(key) {
-		return this.getRowByUUID(this.byPrimaryKey.get(key));
-	}
-	getRowByUUID(__uuid) {
-		return this.byUUID.get(__uuid);
-	}
-	insertRow(row) {
-		let byUUID = this.byUUID.set(_uuid.get(row), row),
-		byPrimaryKey = this.byPrimaryKey.set(row[this.primaryKey], _uuid.get(row));
+export const UUIDMap = new WeakMap();
 
-		let that = this.set("byUUID", byUUID);
-		that = that.set("byPrimaryKey", byPrimaryKey);
-
-		return that;
-	}
-	removeRow(row) {
-		let byUUID = this.byUUID.remove(_uuid.get(row)),
-		byPrimaryKey = this.byPrimaryKey.remove(row[this.primaryKey]);
-
-		let that = this.set("byUUID", byUUID);
-		that = that.set("byPrimaryKey", byPrimaryKey);
-
-		return that;
-	}
-}
+const ORMStorage = new WeakMap();
 
 class ORM {
 	constructor() {
 		// Where the data goes
-		_store.set(this, new Immutable.Map({}));
+		ORMStorage.set(this, new Immutable.Map({}));
 	}
 	addModel(modelObj) {
 		this[modelObj.modelName] = modelObj;
 		modelObj.setORM(this);
 
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 		store = store.set(modelObj.modelName, new ModelStorage());
 
 		modelObj.relations.forEach((relation) => {
@@ -59,17 +29,17 @@ class ORM {
 			}
 		});
 
-		_store.set(this, store);
+		ORMStorage.set(this, store);
 	}
 
 	getRowByPrimaryKey(modelObj, id) {
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 
 		return store.get(modelObj.modelName).getRowByPrimaryKey(id);
 	}
 
 	updateRow(modelObj, row, data) {
-		const __uuid = _uuid.get(row);
+		const __uuid = UUIDMap.get(row);
 		let methods = {};
 		for(var k in modelObj.relations) {
 			if (modelObj.relations[k].hasMany) {
@@ -81,7 +51,7 @@ class ORM {
 		}
 
 		row = row.merge(data);
-		_uuid.set(row, __uuid);
+		UUIDMap.set(row, __uuid);
 
 		for(var k in methods) {
 			row[k] = methods[k];
@@ -103,23 +73,23 @@ class ORM {
 			}
 		}
 
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 
 		let modelStorage = store.get(modelObj.modelName);
 		modelStorage = modelStorage.insertRow(row);
 
 		store = store.set(modelObj.modelName, modelStorage);
-		_store.set(this, store);
+		ORMStorage.set(this, store);
 
 		return row;
 	}
 
 	createRow(modelObj, data, __uuid = null) {
-		const Record = _modelRecord.get(modelObj);
+		const Record = ModelRecordMap.get(modelObj);
 		const row = new Record(data);
 		
 		// UUID for each row is stored in weakmap, not on the object
-		_uuid.set(row, __uuid || uuidv4());
+		UUIDMap.set(row, __uuid || uuidv4());
 
 		row.update = modelObj.update.bind(modelObj, row);
 
@@ -129,23 +99,23 @@ class ORM {
 			}
 		});
 
-		let store = _store.get(this),
+		let store = ORMStorage.get(this),
 		modelStorage = store.get(modelObj.modelName);
 		modelStorage = modelStorage.insertRow(row);
 
 		store = store.set(modelObj.modelName, modelStorage);
-		_store.set(this, store);
+		ORMStorage.set(this, store);
 
 		return row;
 	}
 
 	removeRow(modelObj, row) {
-		let store = _store.get(this),
+		let store = ORMStorage.get(this),
 		modelStorage = store.get(modelObj.modelName);
 		modelStorage = modelStorage.removeRow(row);
 		store = store.set(modelObj.modelName, modelStorage);
 
-		_store.set(this, store);
+		ORMStorage.set(this, store);
 
 		// Clean up relations
 		modelObj.relations.forEach((relation) => {
@@ -159,49 +129,64 @@ class ORM {
 	}
 
 	createRelation(relationInstance, row) {
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 
 		let modelStorage = store.get(relationInstance.modelName);
 
-		let map = modelStorage.get(_uuid.get(relationInstance.instanceRow)) || Immutable.List();
-		map = map.push(_uuid.get(row));
-		modelStorage = modelStorage.set(_uuid.get(relationInstance.instanceRow), map);
+		let map = modelStorage.get(UUIDMap.get(relationInstance.instanceRow)) || Immutable.List();
+		map = map.push(UUIDMap.get(row));
+		modelStorage = modelStorage.set(UUIDMap.get(relationInstance.instanceRow), map);
 		store = store.set(relationInstance.modelName, modelStorage);
 
-		_store.set(this, store);
+		ORMStorage.set(this, store);
 	}
 
 	removeRelation(relationInstance, row) {
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 
 		let modelStorage = store.get(relationInstance.modelName);
 
-		let map = modelStorage.get(_uuid.get(relationInstance.instanceRow)) || Immutable.List();
+		let map = modelStorage.get(UUIDMap.get(relationInstance.instanceRow)) || Immutable.List();
 		map = map.filter((__uuid) => {
-			return __uuid !== _uuid.get(row);
+			return __uuid !== UUIDMap.get(row);
 		});
-		modelStorage = modelStorage.set(_uuid.get(relationInstance.instanceRow), map);
+		modelStorage = modelStorage.set(UUIDMap.get(relationInstance.instanceRow), map);
 		store = store.set(relationInstance.modelName, modelStorage);
 
-		_store.set(this, store);
+		relationInstance.orm[relationInstance.toModelName].relations.forEach((relation) => {
+			if (relation.belongsTo) {
+				row[relation.belongsTo] = undefined;
+			}
+		});
+		
+		ORMStorage.set(this, store);
 	}
 
 	removeAllRelations(relationInstance) {
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 
 		let modelStorage = store.get(relationInstance.modelName);
 
-		modelStorage = modelStorage.remove(_uuid.get(relationInstance.instanceRow));
+		// Remove references belongsTo assoications
+		relationInstance.all().forEach((obj) => {
+			relationInstance.orm[relationInstance.toModelName].relations.forEach((relation) => {
+				if (relation.belongsTo) {
+					obj[relation.belongsTo] = undefined;
+				}
+			});
+		});
+
+		modelStorage = modelStorage.remove(UUIDMap.get(relationInstance.instanceRow));
 		store = store.set(relationInstance.modelName, modelStorage);
 
-		_store.set(this, store);
+		ORMStorage.set(this, store);
 	}
 
 	getRelation(relationInstance) {
-		let store = _store.get(this);
+		let store = ORMStorage.get(this);
 
 		let relation = store.get(relationInstance.modelName);
-		let list = relation.get(_uuid.get(relationInstance.instanceRow)) || Immutable.List();
+		let list = relation.get(UUIDMap.get(relationInstance.instanceRow)) || Immutable.List();
 
 		const objects = store.get(relationInstance.toModelName);
 
@@ -211,91 +196,9 @@ class ORM {
 	}
 
 	toJS() {
-		return _store.get(this).toJS();
+		return ORMStorage.get(this).toJS();
 	}
 }
 
-export class Relation {
-	constructor(orm, modelObj, instanceRow, toModelName) {
-		this.orm = orm;
-		this.modelObj = modelObj;
-		this.instanceRow = instanceRow;
-		this.toModelName = toModelName;
-
-		this.modelName = modelObj.modelName+"_"+toModelName;
-	}
-
-	// Get all the associated objects
-	all() {
-		return this.orm.getRelation(this);
-	}
-
-	// Add a relationship to another instance
-	add(instance) {
-		this.orm.createRelation(this, instance);
-
-		this.orm[this.toModelName].relations.forEach((relation) => {
-			if (relation.belongsTo) {
-				instance[relation.belongsTo] = this.instanceRow;
-			}
-		});
-	}
-
-	// Remove a relationship to another instance
-	remove(instance) {
-		this.orm.removeRelation(this, instance);
-	}
-
-	// Removes all relationships
-	removeAll() {
-		this.orm.removeAllRelations(this);
-	}
-}
-
-export class Model {
-	constructor(modelName, schemaDef, relations = []) {
-		// Immutable Record to use for this model
-		_modelRecord.set(this,
-			class ModelRecord extends Immutable.Record(
-				schemaDef.reduce(
-					(accum, item) => {
-						accum[item] = undefined;
-						return accum;
-					},
-					{}
-				), modelName) {
-				static getModelName() {
-					return modelName;
-				}
-			}
-		);
-
-		this.modelName = modelName;
-		this.relations = relations;
-		this.orm = null;
-	}
-
-	setORM(orm) {
-		if (this.orm !== null) {
-			throw Error("cannot set two orms");
-		}
-		this.orm = orm;
-	}
-
-	getRowByPrimaryKey(key) {
-		return this.orm.getRowByPrimaryKey(this, key);
-	}
-
-	create(data) {
-		return this.orm.createRow(this, data);
-	}
-	remove(row) {
-		return this.orm.removeRow(this, row);
-	}
-	
-	update(row, data) {
-		return this.orm.updateRow(this, row, data);
-	}
-}
 
 export default ORM;

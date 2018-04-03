@@ -1,4 +1,4 @@
-import ORM, { Model } from './orm';
+import ORM, { Model } from './index';
 
 describe("ORM", () => {
 	const orm = new ORM();
@@ -131,7 +131,10 @@ describe("ORM", () => {
 
 	it ('should allow removing relationships', () => {
 		questions[0].answers.remove(answers[0]);
+
 		expect(questions[0].answers.all().size).toEqual(2);
+
+		expect(orm.answers.getRowByPrimaryKey(1).question).toEqual(undefined);
 	});
 
 	it ('should allow removing records and cleaning up associations', () => {
@@ -139,7 +142,7 @@ describe("ORM", () => {
 
 		expect(orm.questions.getRowByPrimaryKey(1)).toEqual(undefined);
 
-		//expect(answers[0].question).toEqual(undefined);
+		expect(orm.answers.getRowByPrimaryKey(3).question).toEqual(undefined);
 	});
 
 	it ('should do something', () => {
