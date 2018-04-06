@@ -32,6 +32,10 @@ class Model {
 		this.orm = orm;
 	}
 
+	all() {
+		return this.orm.all(this);
+	}
+
 	getRowByPrimaryKey(key) {
 		return this.orm.getRowByPrimaryKey(this, key);
 	}

@@ -9,6 +9,9 @@ class ModelStorage extends Immutable.Record({
 	byUUID: Immutable.Map(),
 	byPrimaryKey: Immutable.Map(),
 }, "ModelStorage") {
+	all() {
+		return this.byUUID.toList();
+	}
 	getRowsByUUID(__uuids) {
 		return this.byUUID.filter((v,k) => {
 			return __uuids.includes(k);

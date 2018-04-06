@@ -16,6 +16,11 @@ class ORM {
 		// Where the data goes
 		ORMStorage.set(this, new Immutable.Map({}));
 	}
+
+	getState() {
+		return ORMStorage.get(this);
+	}
+
 	addModel(modelObj) {
 		this[modelObj.modelName] = modelObj;
 		modelObj.setORM(this);
@@ -30,6 +35,12 @@ class ORM {
 		});
 
 		ORMStorage.set(this, store);
+	}
+
+	all(modelObj) {
+		let store = ORMStorage.get(this);
+
+		return store.get(modelObj.modelName).all();
 	}
 
 	getRowByPrimaryKey(modelObj, id) {
@@ -51,6 +62,8 @@ class ORM {
 		}
 
 		row = row.merge(data);
+		row.update = modelObj.update.bind(modelObj, row);
+
 		UUIDMap.set(row, __uuid);
 
 		for(var k in methods) {
