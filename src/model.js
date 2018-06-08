@@ -3,25 +3,31 @@ import Immutable from 'immutable';
 export const ModelRecordMap = new WeakMap();
 
 class Model {
-	constructor(modelName, schemaDef, relations = []) {
+	constructor(modelName, schemaDef, relations = {}) {
 		// Immutable Record to use for this model
 		ModelRecordMap.set(this,
 			class ModelRecord extends Immutable.Record(
-				schemaDef.reduce(
+				((schemaDef instanceof Array)? schemaDef.reduce(
 					(accum, item) => {
 						accum[item] = undefined;
 						return accum;
 					},
 					{}
-				), modelName) {
+				) : schemaDef), modelName) {
 				static getModelName() {
 					return modelName;
 				}
 			}
 		);
 
+		this.primaryKey = relations.primaryKey || "id";
 		this.modelName = modelName;
-		this.relations = relations;
+		// Ensure all values are an array
+		this.relations = Object.keys(relations).reduce((obj, k, v) => {
+			obj[k] = ((Array.isArray(relations[k]))? relations[k] : [relations[k]]);
+			return obj;
+		}, {});
+
 		this.orm = null;
 	}
 

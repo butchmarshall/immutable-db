@@ -4,6 +4,10 @@ import {
 	UUIDMap
 } from './orm';
 
+import {
+	ModelRecordMap
+} from './model';
+
 class ModelStorage extends Immutable.Record({
 	primaryKey: "id",
 	byUUID: Immutable.Map(),

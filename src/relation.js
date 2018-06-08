@@ -19,11 +19,11 @@ class Relation {
 	add(instance) {
 		this.orm.createRelation(this, instance);
 
-		this.orm[this.toModelName].relations.forEach((relation) => {
-			if (relation.belongsTo) {
-				instance[relation.belongsTo] = this.instanceRow;
-			}
-		});
+		if (this.orm[this.toModelName].relations.belongsTo) {
+			this.orm[this.toModelName].relations.belongsTo.forEach((belongsTo) => {
+				instance[belongsTo] = this.instanceRow;
+			});
+		}
 	}
 
 	// Remove a relationship to another instance

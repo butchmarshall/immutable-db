@@ -1,7 +1,5 @@
 # immutable-orm [![npm version](https://badge.fury.io/js/immutable-orm.svg)](https://badge.fury.io/js/immutable-orm)
-An simple immutable relational orm
-
-**This package is not production ready**
+An simple immutable ORM
 
 # Install
 
@@ -11,7 +9,7 @@ An simple immutable relational orm
 npm i immutable-orm --save
 ```
 
-# Usage
+# Basic Usage
 
 Import library
 
@@ -19,23 +17,30 @@ Import library
 import ORM, {Model} from 'immutable-orm';
 ```
 
-Create some data
+Setup a new ORM
 
 ```javascript
 const orm = new ORM();
 const questionsModel = new Model('questions', [
 	'id', 'name'
-], [{
+], {
+	primaryKey: 'id',
 	hasMany: 'answers',
-}]);
+});
 const answersModel = new Model('answers', [
 	'id', 'name'
-], [{
+], {
+	primaryKey: 'id',
 	belongsTo: 'question',
-}]);
+});
 
 orm.addModel(questionsModel);
 orm.addModel(answersModel);
+```
+
+Create some data
+
+```javascript
 let answers = [];
 let questions = [];
 
@@ -89,7 +94,9 @@ questions[1].answers.add(answers[6]);
 Query your data
 
 ```javascript
-orm.questions.get(1);
+orm.questions.getRowByPrimaryKey(1);
 
-orm.questions.get(1).answers.get();
+orm.questions.getRowByPrimaryKey(1).answers.getRowByPrimaryKey();
 ```
+
+# Redux Usage

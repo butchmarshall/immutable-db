@@ -26,13 +26,15 @@ class ORM {
 		modelObj.setORM(this);
 
 		let store = ORMStorage.get(this);
-		store = store.set(modelObj.modelName, new ModelStorage());
+		store = store.set(modelObj.modelName, new ModelStorage({
+			primaryKey: modelObj.primaryKey,
+		}));
 
-		modelObj.relations.forEach((relation) => {
-			if (relation.hasMany) {
-				store = store.set(modelObj.modelName+"_"+relation.hasMany, Immutable.Map({}));
-			}
-		});
+		if (modelObj.relations.hasMany) {
+			modelObj.relations.hasMany.forEach((hasMany) => {
+				store = store.set(modelObj.modelName+"_"+hasMany, Immutable.Map({}));
+			});
+		}
 
 		ORMStorage.set(this, store);
 	}
@@ -52,13 +54,16 @@ class ORM {
 	updateRow(modelObj, row, data) {
 		const __uuid = UUIDMap.get(row);
 		let methods = {};
-		for(var k in modelObj.relations) {
-			if (modelObj.relations[k].hasMany) {
-				methods[modelObj.relations[k].hasMany] = row[modelObj.relations[k].hasMany];
-			}
-			if (modelObj.relations[k].belongsTo) {
-				methods[modelObj.relations[k].belongsTo] = row[modelObj.relations[k].belongsTo];
-			}
+
+		if (modelObj.relations.hasMany) {
+			modelObj.relations.hasMany.forEach((hasMany) => {
+				methods[hasMany] = row[hasMany];
+			});
+		}
+		if (modelObj.relations.belongsTo) {
+			modelObj.relations.belongsTo.forEach((belongsTo) => {
+				methods[belongsTo] = row[belongsTo];
+			});
 		}
 
 		row = row.merge(data);
@@ -70,20 +75,20 @@ class ORM {
 			row[k] = methods[k];
 		}
 
-		for(var k in modelObj.relations) {
-			// Dirty dirty update of the belongsTo relationships for each assoication
-			if (modelObj.relations[k].hasMany) {
-				row[modelObj.relations[k].hasMany].all().forEach((obj) => {
-					this[obj.constructor.getModelName()].relations.forEach((relation) => {
-						if (relation.belongsTo) {
-							obj[relation.belongsTo] = row;
-						}
-					});
+		// Dirty dirty update of the belongsTo relationships for each assoication
+		if (modelObj.relations.hasMany) {
+			modelObj.relations.hasMany.forEach((hasMany) => {
+				row[hasMany].all().forEach((obj) => {
+					if (this[obj.constructor.getModelName()].relations.belongsTo) {
+						this[obj.constructor.getModelName()].relations.belongsTo.forEach((belongsTo) => {
+							obj[belongsTo] = row;
+						});
+					}
 				});
-			}
-			// I don't think we need to deal with the belongs to case, no ref here?
-			if (modelObj.relations[k].belongsTo) {
-			}
+			});
+		}
+		// I don't think we need to deal with the belongs to case, no ref here?
+		if (modelObj.relations.belongsTo) {
 		}
 
 		let store = ORMStorage.get(this);
@@ -106,11 +111,11 @@ class ORM {
 
 		row.update = modelObj.update.bind(modelObj, row);
 
-		modelObj.relations.forEach((relation) => {
-			if (relation.hasMany) {
-				row[relation.hasMany] = new Relation(this, modelObj, row, relation.hasMany);
-			}
-		});
+		if (modelObj.relations.hasMany) {
+			modelObj.relations.hasMany.forEach((hasMany) => {
+				row[hasMany] = new Relation(this, modelObj, row, hasMany);
+			});
+		}
 
 		let store = ORMStorage.get(this),
 		modelStorage = store.get(modelObj.modelName);
@@ -131,14 +136,16 @@ class ORM {
 		ORMStorage.set(this, store);
 
 		// Clean up relations
-		modelObj.relations.forEach((relation) => {
-			if (relation.hasMany) {
-				row[relation.hasMany].removeAll();
-			}
-			if (relation.belongsTo) {
-				this.removeRelation(row[relation.belongsTo], row);
-			}
-		});
+		if (modelObj.relations.hasMany) {
+			modelObj.relations.hasMany.forEach((hasMany) => {
+				row[hasMany].removeAll();
+			});
+		}
+		if (modelObj.relations.belongsTo) {
+			modelObj.relations.belongsTo.forEach((belongsTo) => {
+				this.removeRelation(row[belongsTo], row);
+			});
+		}
 	}
 
 	createRelation(relationInstance, row) {
@@ -166,12 +173,12 @@ class ORM {
 		modelStorage = modelStorage.set(UUIDMap.get(relationInstance.instanceRow), map);
 		store = store.set(relationInstance.modelName, modelStorage);
 
-		relationInstance.orm[relationInstance.toModelName].relations.forEach((relation) => {
-			if (relation.belongsTo) {
-				row[relation.belongsTo] = undefined;
-			}
-		});
-		
+		if (relationInstance.orm[relationInstance.toModelName].relations.belongsTo) {
+			relationInstance.orm[relationInstance.toModelName].relations.belongsTo.forEach((belongsTo) => {
+				row[belongsTo] = undefined;
+			});
+		}
+
 		ORMStorage.set(this, store);
 	}
 
@@ -182,11 +189,11 @@ class ORM {
 
 		// Remove references belongsTo assoications
 		relationInstance.all().forEach((obj) => {
-			relationInstance.orm[relationInstance.toModelName].relations.forEach((relation) => {
-				if (relation.belongsTo) {
-					obj[relation.belongsTo] = undefined;
-				}
-			});
+			if (relationInstance.orm[relationInstance.toModelName].relations.belongsTo) {
+				relationInstance.orm[relationInstance.toModelName].relations.belongsTo.forEach((belongsTo) => {
+					obj[belongsTo] = undefined;
+				});
+			}
 		});
 
 		modelStorage = modelStorage.remove(UUIDMap.get(relationInstance.instanceRow));

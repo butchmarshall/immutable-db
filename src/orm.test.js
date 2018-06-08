@@ -3,15 +3,19 @@ import ORM, { Model } from './index';
 describe("ORM", () => {
 	const orm = new ORM();
 	const questionsModel = new Model('questions', [
-		'id', 'name'
-	], [{
+		'id',
+		'name',
+	], {
+		primaryKey: 'id',
 		hasMany: 'answers',
-	}]);
+	});
 	const answersModel = new Model('answers', [
-		'id', 'name'
-	], [{
+		'id',
+		'name',
+	], {
+		primaryKey: 'id',
 		belongsTo: 'question',
-	}]);
+	});
 
 	orm.addModel(questionsModel);
 	orm.addModel(answersModel);
