@@ -4,17 +4,14 @@ import {
 	UUIDMap
 } from './orm';
 
-import {
-	ModelRecordMap
-} from './model';
-
 class ModelStorage extends Immutable.Record({
 	primaryKey: "id",
 	byUUID: Immutable.Map(),
+	byUUID_List: Immutable.List(), // Caching for all() method
 	byPrimaryKey: Immutable.Map(),
 }, "ModelStorage") {
 	all() {
-		return this.byUUID.toList();
+		return this.byUUID_List;
 	}
 	getRowsByUUID(__uuids) {
 		return this.byUUID.filter((v,k) => {
@@ -33,6 +30,7 @@ class ModelStorage extends Immutable.Record({
 
 		let that = this.set("byUUID", byUUID);
 		that = that.set("byPrimaryKey", byPrimaryKey);
+		that = that.set("byUUID_List", that.byUUID.toList());
 
 		return that;
 	}
@@ -42,6 +40,7 @@ class ModelStorage extends Immutable.Record({
 
 		let that = this.set("byUUID", byUUID);
 		that = that.set("byPrimaryKey", byPrimaryKey);
+		that = that.set("byUUID_List", that.byUUID.toList());
 
 		return that;
 	}

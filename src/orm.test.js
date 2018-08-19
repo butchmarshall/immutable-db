@@ -76,6 +76,11 @@ describe("ORM", () => {
 
 	console.log(orm.toJS());
 
+	it ('should return all records immutably', () => {
+		expect(orm.questions.all().size).toEqual(2);
+		expect(orm.questions.all()).toEqual(orm.questions.all());
+	});
+	
 	it ('should allow fetching individual records', () => {
 		expect(orm.questions.getRowByPrimaryKey(1)).toEqual(questions[0]);
 		expect(orm.questions.getRowByPrimaryKey(2)).toEqual(questions[1]);
