@@ -4,7 +4,8 @@ import uuidv4 from 'uuid/v4';
 import ModelStorage from './model_storage';
 import Relation from './relation';
 import {
-	ModelRecordMap
+	ModelRecordMap,
+	PrototypesMap,
 } from './model';
 
 export const UUIDMap = new WeakMap();
@@ -68,6 +69,11 @@ class ORM {
 
 		row = row.merge(data);
 		row.update = modelObj.update.bind(modelObj, row);
+
+		const prototypes = PrototypesMap.get(modelObj);
+		for(var k in prototypes) {
+			row[k] = prototypes[k];
+		}
 
 		UUIDMap.set(row, __uuid);
 

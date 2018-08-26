@@ -1,10 +1,13 @@
 import Immutable from 'immutable';
 
 export const ModelRecordMap = new WeakMap();
+export const PrototypesMap = new WeakMap();
 
 class Model {
-	constructor(modelName, schemaDef, relations = {}) {
+	constructor(modelName, schemaDef, relations = {}, prototypes = {}) {
 		// Immutable Record to use for this model
+		PrototypesMap.set(this, prototypes);
+
 		ModelRecordMap.set(this,
 			class ModelRecord extends Immutable.Record(
 				((schemaDef instanceof Array)? schemaDef.reduce(
@@ -14,6 +17,13 @@ class Model {
 					},
 					{}
 				) : schemaDef), modelName) {
+				constructor(props) {
+					super(props);
+					// Set prototype functions that were passed
+					for(var k in prototypes) {
+						this[k] = prototypes[k];
+					}
+				}
 				static getModelName() {
 					return modelName;
 				}
